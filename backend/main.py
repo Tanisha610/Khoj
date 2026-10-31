@@ -21,11 +21,17 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from generate_dataset import FIELDNAMES, ensure_dataset
 
-DATABASE_PATH = Path(__file__).with_name("biosense.db")
+DATABASE_PATH = Path(os.environ.get("BIOSENSE_DATABASE_PATH", Path(__file__).with_name("biosense.db")))
 DATASET_PATH = Path(__file__).with_name("synthetic_pcna_dataset.csv")
 SESSION_COOKIE = "biosense_session"
 SESSION_DAYS = 7
 SESSION_SECRET = os.environ.get("BIOSENSE_SESSION_SECRET") or secrets.token_urlsafe(32)
+SESSION_COOKIE_SAMESITE = os.environ.get("BIOSENSE_COOKIE_SAMESITE", "lax").lower()
+if SESSION_COOKIE_SAMESITE not in {"lax", "strict", "none"}:
+    raise ValueError("BIOSENSE_COOKIE_SAMESITE must be lax, strict, or none.")
+SESSION_COOKIE_SECURE = os.environ.get("BIOSENSE_COOKIE_SECURE", "").lower() in {"1", "true", "yes"}
+if SESSION_COOKIE_SAMESITE == "none" and not SESSION_COOKIE_SECURE:
+    raise ValueError("BIOSENSE_COOKIE_SECURE must be true when BIOSENSE_COOKIE_SAMESITE is none.")
 DEVICE_ID = "VS-001"
 ADC_MAX = 4095
 ADC_REFERENCE_V = 3.3
@@ -41,15 +47,26 @@ logger = logging.getLogger(__name__)
 DATASET_ROWS: list[dict] = []
 DATASET_ERROR: str | None = None
 app = FastAPI(title="BioSense Patient Portal API", version="2.0.0")
+DEFAULT_CORS_ORIGINS = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+    "http://localhost:5176",
+    "http://127.0.0.1:5176",
+    "http://localhost:5177",
+    "http://127.0.0.1:5177",
+)
+CORS_ORIGINS = [
+    origin.strip().rstrip("/")
+    for origin in os.environ.get("BIOSENSE_CORS_ORIGINS", ",".join(DEFAULT_CORS_ORIGINS)).split(",")
+    if origin.strip()
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", "http://127.0.0.1:5173",
-        "http://localhost:5174", "http://127.0.0.1:5174",
-        "http://localhost:5175", "http://127.0.0.1:5175",
-        "http://localhost:5176", "http://127.0.0.1:5176",
-        "http://localhost:5177", "http://127.0.0.1:5177",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -287,7 +304,14 @@ def new_session(db, patient_id, response):
     token_hash = hashlib.sha256(raw.encode()).hexdigest()
     expires = datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
     db.execute("INSERT INTO sessions VALUES (?, ?, ?)", (token_hash, patient_id, expires.isoformat()))
-    response.set_cookie(SESSION_COOKIE, raw, httponly=True, samesite="lax", max_age=SESSION_DAYS * 86400)
+    response.set_cookie(
+        SESSION_COOKIE,
+        raw,
+        httponly=True,
+        secure=SESSION_COOKIE_SECURE,
+        samesite=SESSION_COOKIE_SAMESITE,
+        max_age=SESSION_DAYS * 86400,
+    )
 
 
 def current_patient(
@@ -480,7 +504,12 @@ def logout(
         token_hash = hashlib.sha256(session.encode()).hexdigest()
         db.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
         db.commit()
-    response.delete_cookie(SESSION_COOKIE)
+    response.delete_cookie(
+        SESSION_COOKIE,
+        httponly=True,
+        secure=SESSION_COOKIE_SECURE,
+        samesite=SESSION_COOKIE_SAMESITE,
+    )
     return {"message": "Logged out"}
 
 

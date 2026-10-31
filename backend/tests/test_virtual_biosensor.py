@@ -281,6 +281,23 @@ def test_registration_and_session_still_work_with_existing_sqlite_schema(tmp_pat
         assert authenticated["patient_id"] == registered["patient"]["patient_id"]
 
 
+def test_production_session_cookie_supports_cross_origin_frontend(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(main, "DATABASE_PATH", tmp_path / "biosense-cookie-test.db")
+    monkeypatch.setattr(main, "SESSION_COOKIE_SAMESITE", "none")
+    monkeypatch.setattr(main, "SESSION_COOKIE_SECURE", True)
+    main.init_db()
+    with closing(main.connection()) as db:
+        patient = create_patient(db, "cookie-test@example.test")
+        db.commit()
+        response = Response()
+        main.new_session(db, patient["id"], response)
+
+        cookie = SimpleCookie(response.headers["set-cookie"])["biosense_session"]
+        assert cookie["httponly"]
+        assert cookie["secure"]
+        assert cookie["samesite"] == "none"
+
+
 def test_pregnancy_and_breastfeeding_assessment_answers_persist_and_migrate(tmp_path: Path, monkeypatch):
     database_path = tmp_path / "existing-assessment.db"
     monkeypatch.setattr(main, "DATABASE_PATH", database_path)

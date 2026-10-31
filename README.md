@@ -68,6 +68,26 @@ Netlify environment variable `VITE_API_URL` to the backend's base URL (for
 example, `https://your-api-service.onrender.com`), then redeploy. The backend
 must also allow the Netlify site's origin for credentialed browser requests.
 
+## Deploy the backend to Render
+
+The root `render.yaml` defines a free Render web service for the API, including
+its health check, generated session secret, Netlify CORS origins, and secure
+cross-origin session cookies. In Render, choose **New → Blueprint**, connect
+`Tanisha610/Khoj`, and apply the `render.yaml` configuration. When the service
+is live, verify `https://<your-service>.onrender.com/health` returns
+`{"status":"online"}`.
+
+Then set the Netlify environment variable `VITE_API_URL` to
+`https://<your-service>.onrender.com` (no trailing slash) and redeploy the
+frontend. The Blueprint allows the main Netlify URL and the current working
+deploy preview; update `BIOSENSE_CORS_ORIGINS` in Render if the frontend URL
+changes.
+
+The free service uses SQLite on ephemeral storage, so account and test data
+can be lost when Render replaces the instance. Use a persistent database or
+paid persistent disk before storing data you need to keep; for a disk mounted
+at `/var/data`, set `BIOSENSE_DATABASE_PATH` to `/var/data/biosense.db`.
+
 ## Legacy device simulator
 
 The existing software sensor simulator can post 20 synthetic, unitless device

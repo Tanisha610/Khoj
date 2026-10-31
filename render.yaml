@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: oncocare-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: BIOSENSE_SESSION_SECRET
+        generateValue: true
+      - key: BIOSENSE_CORS_ORIGINS
+        value: https://stalwart-vacherin-3b84cd.netlify.app,https://6ae5ea7b6293e6869c4b69bc--stalwart-vacherin-3b84cd.netlify.app
+      - key: BIOSENSE_COOKIE_SAMESITE
+        value: none
+      - key: BIOSENSE_COOKIE_SECURE
+        value: true
