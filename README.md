@@ -55,6 +55,19 @@ The landing page includes an interactive signal lab comparing deterministic
 synthetic raw traces with a three-sample moving average; its values are
 illustrative and unrelated to patient records or real PCNA measurements.
 
+## Deploy the frontend to Netlify
+
+The root `netlify.toml` configures this repository's frontend build and
+single-page-app fallback. Connect the GitHub repository to Netlify and trigger
+a new deploy. If the Netlify site was configured manually, use `frontend` as
+the base directory, `npm run build` as the build command, and `dist` as the
+publish directory.
+
+To connect the deployed frontend to a separately hosted backend, set the
+Netlify environment variable `VITE_API_URL` to the backend's base URL (for
+example, `https://your-api-service.onrender.com`), then redeploy. The backend
+must also allow the Netlify site's origin for credentialed browser requests.
+
 ## Legacy device simulator
 
 The existing software sensor simulator can post 20 synthetic, unitless device
